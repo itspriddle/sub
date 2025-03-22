@@ -1,14 +1,35 @@
 #!/usr/bin/env bash
+# Usage: sub completions <command> [arg1 arg2...]
+#
+# NAME
+#   sub completions -- print shell completion candidates
+#
+# SYNOPSIS
+#   sub completions <command> [arg1 arg2...]
+#
+# DESCRIPTION
+#   This command is used by sub completion scripts (eg: `completions/sub.bash`
+#   and `completions/sub.zsh). These scripts are automatically setup when
+#   using `sub init -`.
+#
+# SEE ALSO
+#   sub-init(1)
+
+[[ "${DEBUG}" ]] && set -x
+
 set -e
 
-COMMAND="$1"
-if [ -z "$COMMAND" ]; then
-  echo "usage: sub completions COMMAND [arg1 arg2...]" >&2
-  exit 1
+COMMAND="${1:-}"
+
+if [[ -z "${COMMAND}" ]]; then
+  exec sub-help --usage --exit 1 "${0##*/sub-}"
 fi
 
-COMMAND_PATH="$(command -v "sub-$COMMAND")"
-if grep -i "^# provide sub completions" "$COMMAND_PATH" >/dev/null; then
+echo "-h"
+echo "--help"
+
+COMMAND_PATH="$(command -v "sub-${COMMAND}")"
+if grep -i -E "^[ ]*(#|//) provide sub completions" "${COMMAND_PATH}" >/dev/null; then
   shift
-  exec "$COMMAND_PATH" --complete "$@"
+  exec "${COMMAND_PATH}" --complete "${@}"
 fi

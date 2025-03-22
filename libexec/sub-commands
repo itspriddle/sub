@@ -1,42 +1,41 @@
 #!/usr/bin/env bash
 # Usage: sub commands
 # Summary: List all sub commands
-# Help: This command is mostly used for autocompletion in various shells, and for `sub help`.
-# Also, this command helps find commands that are named the same as potentially builtin shell commands (which, cd, etc)
+#
+# NAME
+#   sub commands -- list sub commands
+#
+# SYNOPSIS
+#   sub commands
+#
+# DESCRIPTION
+#   This command is mostly used for autocompletion in various shells, and for
+#   `sub help`.
 
-set -e
-
-# Provide sub completions
-if [ "$1" = "--complete" ]; then
-  echo --sh
-  echo --no-sh
-  exit
+if [[ "$DEBUG" ]]; then
+  export PS4='+ [${BASH_SOURCE##*/}:$LINENO] '
+  set -x
 fi
 
-if [ "$1" = "--sh" ]; then
-  sh=1
-  shift
-elif [ "$1" = "--no-sh" ]; then
-  nosh=1
-  shift
+if [[ -z "$_SUB_ROOT" ]]; then
+  echo "Error: Must run \`${0//*\/sub-/sub }' instead."
+  exit 1
 fi
 
-shopt -s nullglob
+set -euo pipefail
 
-{ for path in ${PATH//:/$'\n'}; do
-    for command in "${path}/sub-"*; do
-      command="${command##*sub-}"
-      if [ -n "$sh" ]; then
-        if [ ${command:0:3} = "sh-" ]; then
-          echo ${command##sh-}
-        fi
-      elif [ -n "$nosh" ]; then
-        if [ ${command:0:3} != "sh-" ]; then
-          echo ${command##sh-}
-        fi
-      else
-        echo ${command##sh-}
+main() {
+  shopt -s nullglob
+
+  {
+    for command in "$_SUB_ROOT/libexec/sub-"*; do
+      if [[ -x "$command" ]]; then
+        echo "${command##*/sub-}"
       fi
     done
-  done
-} | sort | uniq
+  } | sort
+
+  shopt -u nullglob
+}
+
+main "$@"

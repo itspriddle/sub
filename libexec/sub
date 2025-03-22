@@ -1,4 +1,24 @@
 #!/usr/bin/env bash
+# Usage: sub <command>
+#
+# NAME
+#   sub -- CLI tools
+#
+# SYNOPSIS
+#   sub <command>
+#
+# DESCRIPTION
+#   sub contains CLI tools
+#
+# OPTIONS
+#   -h
+#       Print short help and exit.
+#
+#   --help
+#       Print full help text and exit. Same as `sub help`.
+#
+#   --root
+#       Print the root directory that sub is installed to and exit.
 set -e
 
 resolve_link() {
@@ -6,8 +26,10 @@ resolve_link() {
 }
 
 abs_dirname() {
-  local cwd="$(pwd)"
+  local cwd
   local path="$1"
+
+  cwd="$(pwd)"
 
   while [ -n "$path" ]; do
     cd "${path%/*}"
@@ -21,21 +43,42 @@ abs_dirname() {
 
 libexec_path="$(abs_dirname "$0")"
 export _SUB_ROOT="$(abs_dirname "$libexec_path")"
+
+# export _SUB_ROOT
 export PATH="${libexec_path}:$PATH"
 
-command="$1"
-case "$command" in
-"" | "-h" | "--help" )
-  exec sub-help
-  ;;
-* )
-  command_path="$(command -v "sub-$command" || true)"
-  if [ ! -x "$command_path" ]; then
-    echo "sub: no such command \`$command'" >&2
-    exit 1
-  fi
+# shellcheck disable=share/sub/stdlib.sh
+source "$_SUB_ROOT/share/sub/stdlib.sh"
 
-  shift
-  exec "$command_path" "$@"
-  ;;
+command="$1"
+
+case "$command" in
+  "" | "-h" | "--help" )
+    exec sub-help
+    ;;
+  --root)
+    # If `sub --root` was called, print the directory this project is
+    # installed to and exit.
+    echo "$_SUB_ROOT"
+    return 0
+    ;;
+  * )
+    command_path="$(command -v "sub-$command" || true)"
+    if [ ! -x "$command_path" ]; then
+      echo "sub: no such command \`$command'" >&2
+      exit 1
+    fi
+
+    shift
+
+    if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+      # If someone requested `sub <command> -h|--help` show the appropriate
+      # help text. This eliminates the need for each script to respond to
+      # `-h` and `--help`.
+      exec sub-help --flag "$1" "$command"
+    else
+      # Otherwise, run the requested script from the libexec directory
+      exec "$command_path" "$@"
+    fi
+    ;;
 esac

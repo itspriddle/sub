@@ -10,10 +10,11 @@ _sub() {
   word="${words[2]}"
 
   if [ "${#words}" -eq 2 ]; then
-    completions="$(sub commands)"
+    completions="$(sub commands; echo "-h"; echo "--help")"
   else
-    completions="$(sub completions "${word}")"
+    completions="$(sub completions "${words[2,-2]}")"
   fi
+
 
   reply=("${(ps:\n:)completions}")
 }

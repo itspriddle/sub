@@ -1,94 +1,93 @@
 #!/usr/bin/env bash
-set -e
+# Usage: sub init [options] [--] [-]
+# Summary: Initializes Bash/ZSH shell completion for sub commands
+#
+# NAME
+#   sub init -- Initializes Bash/ZSH shell completion for
+#   sub commands
+#
+# SYNOPSIS
+#   sub init
+#   sub init [options] -
+#
+# DESCRIPTION
+#   Initializes Bash/ZSH shell completion for sub commands. This is
+#   NOT required unless you want the convenience of tab completion.
+#
+# OPTIONS
+#   -s shell, --shell shell
+#       Specify the shell to initialize for, default is `basename "$SHELL"`
+#
+# EXAMPLES
+#   Add to your `~/.zshenv` or `~/.bash_profile`
+#
+#     # Setup sub
+#     command -v sub > /dev/null && eval "$(sub init -)"
 
-print=""
-if [ "$1" = "-" ]; then
-  print=1
-  shift
+[[ "${DEBUG}" ]] && set -x
+
+set -euo pipefail
+
+while [[ "${#}" -gt 0 ]]; do
+  case "${1}" in
+    -s | --shell | --shell=*)
+      opt="${1%%=*}"
+      if [[ "${1:-}" = "--shell="* ]]; then
+        shell="${1##--shell=}"
+        shift
+      elif [[ "${2:-}" ]]; then
+        shell="${2}"
+        shift 2
+      fi
+
+      [[ -z "${shell:-}" ]] &&
+        abort "option requires an argument -- '${opt}'"
+      ;;
+    -s?*)
+      shell="${1##-s}"
+      shift
+      ;;
+    --) shift;;
+    -) print=1; shift;;
+    --*|-*) warn "Invalid option"; exec sub-help --usage --exit 1 "${0##*/sub-}";;
+    *) break;;
+  esac
+done
+
+if [[ -z "${shell:-}" ]]; then
+  shell="$(basename "${SHELL}")"
 fi
 
-shell="$1"
-if [ -z "$shell" ]; then
-  shell="$(basename "$SHELL")"
-fi
-
-resolve_link() {
-  $(type -p greadlink readlink | head -1) $1
-}
-
-abs_dirname() {
-  local cwd="$(pwd)"
-  local path="$1"
-
-  while [ -n "$path" ]; do
-    cd "${path%/*}"
-    local name="${path##*/}"
-    path="$(resolve_link "$name" || true)"
-  done
-
-  pwd
-  cd "$cwd"
-}
-
-root="$(abs_dirname "$0")/.."
-
-if [ -z "$print" ]; then
-  case "$shell" in
-  bash )
-    profile='~/.bash_profile'
-    ;;
-  zsh )
-    profile='~/.zshenv'
-    ;;
-  * )
-    profile='your profile'
-    ;;
+if [[ -z "${print:-}" ]]; then
+  case "${shell}" in
+    bash)
+      # shellcheck disable=SC2088
+      profile='~/.bash_profile'
+      ;;
+    zsh)
+      # shellcheck disable=SC2088
+      profile='~/.zshenv'
+      ;;
+    *)
+      profile='your profile'
+      ;;
   esac
 
   { echo "# Load sub automatically by adding"
     echo "# the following to ${profile}:"
     echo
     echo "eval \"\$(${_SUB_ROOT}/bin/sub init -)\""
-    echo
   } >&2
 
   exit 1
 fi
 
-echo "export PATH=\"\${PATH}:${_SUB_ROOT}/bin\""
-
-case "$shell" in
-bash | zsh )
-  echo "source \"$root/completions/sub.${shell}\""
-  ;;
-esac
-
-commands=(`sub commands --sh`)
-IFS="|"
-cat <<EOS
-_sub_wrapper() {
-  local command="\$1"
-  if [ "\$#" -gt 0 ]; then
-    shift
-  fi
-
-  case "\$command" in
-  ${commands[*]})
-    eval \`sub "sh-\$command" "\$@"\`;;
-  *)
-    command sub "\$command" "\$@";;
-  esac
-}
-EOS
-
-# zsh can't pass argument with aliases, but bash can.
-# zsh can have functions with the name being only numbers, but bash can't.
-# fix both cases here by letting zsh have a function, and bash have its alias.
-case "$shell" in
-bash )
-  echo "alias sub=_sub_wrapper"
-  ;;
-zsh )
-  echo "sub=_sub_wrapper"
-  ;;
+case "${shell}" in
+  bash | zsh)
+    echo "if ! command -v sub > /dev/null; then"
+    echo "  export PATH=\"\${PATH}:${_SUB_ROOT}/bin\""
+    echo "fi"
+    echo
+    echo "source \"${_SUB_ROOT}/completions/sub.${shell}\""
+    ;;
 esac
